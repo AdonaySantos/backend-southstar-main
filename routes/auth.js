@@ -1,33 +1,62 @@
 const express = require('express');
-const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const router = express.Router();
-require('dotenv').config();
+const dotenv = require('dotenv');
+
+// Carregar variáveis de ambiente
+dotenv.config();
 
 // Lista de usuários (substitui o banco de dados)
 const users = [];
 
-// Função para adicionar usuários padrão à lista
+// Segredo JWT
+const JWT_SECRET = process.env.JWT_SECRET || 'seu_segredo_jwt';
+
+// Função para adicionar usuários padrão
 async function addDefaultUsers() {
   const defaultUsers = [
-    { id: 1, name: 'adonay', password: process.env.ADONAY_PASSWORD },
-    { id: 2, name: 'well', password: process.env.WELL_PASSWORD },
+    {
+      id: 1,
+      name: 'adonay',
+      password: await bcrypt.hash(process.env.ADONAY_PASSWORD, 10), // Senha a partir de variável do .env
+    },
+    {
+      id: 2,
+      name: 'well',
+      password: await bcrypt.hash(process.env.WELL_PASSWORD, 10), // Senha a partir de variável do .env
+    }
   ];
 
-  for (const user of defaultUsers) {
-    // Criptografar a senha antes de adicionar à lista
-    const hashedPassword = await bcrypt.hash(user.password, 10);
-    users.push({ id: user.id, name: user.name, password: hashedPassword });
-  }
+  users.push(...defaultUsers);
 }
 
-// Chamar a função para adicionar os usuários padrão
+// Adicionar usuários padrão ao iniciar
 addDefaultUsers();
 
-// Função para comparar senha criptografada
-async function comparePassword(plainPassword, hashedPassword) {
-  return bcrypt.compare(plainPassword, hashedPassword);
-}
+// Rota para cadastrar novos usuários
+router.post('/register', async (req, res) => {
+  const { name, password } = req.body;
+
+  // Verificar se o usuário já existe
+  const existingUser = users.find((u) => u.name === name);
+  if (existingUser) {
+    return res.status(400).json({ message: 'Usuário já existe!' });
+  }
+
+  try {
+    // Criptografar a senha
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Adicionar o novo usuário à lista
+    const newUser = { id: users.length + 1, name, password: hashedPassword };
+    users.push(newUser);
+
+    res.status(201).json({ message: 'Cadastro bem-sucedido!' });
+  } catch (error) {
+    res.status(500).json({ message: 'Erro ao cadastrar o usuário!' });
+  }
+});
 
 // Rota de login
 router.post('/login', async (req, res) => {
@@ -40,20 +69,23 @@ router.post('/login', async (req, res) => {
   }
 
   // Verificar a senha
-  const isMatch = await comparePassword(password, user.password);
+  const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
     return res.status(400).json({ message: 'Senha incorreta' });
   }
 
   // Gerar token JWT
-  const token = jwt.sign({ userId: user.id }, 'seu_segredo_jwt', {
-    expiresIn: '1h',
-  });
+  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1h' });
 
   res.json({
     message: 'Login bem-sucedido!',
     token,
   });
+});
+
+// Função para visualizar todos os usuários cadastrados (apenas para testes)
+router.get('/users', (req, res) => {
+  res.json(users);
 });
 
 module.exports = router;

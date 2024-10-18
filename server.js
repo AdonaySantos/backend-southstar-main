@@ -1,18 +1,21 @@
 const express = require('express');
-const cors = require('cors');
-const authRoutes = require('./routes/auth');
+const dotenv = require('dotenv');
+const bodyParser = require('body-parser');
+const authRoutes = require('./routes/auth'); // Importando as rotas de autenticação
+
+// Carregar variáveis de ambiente
+dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
-app.use(express.json()); // Permite parsing do body JSON
+app.use(bodyParser.json());
 
 // Rotas
-app.use('/', authRoutes);
+app.use('/', authRoutes); // Rotas de autenticação
 
-// Porta do servidor
-const PORT = process.env.PORT || 5000;
+// Iniciar o servidor
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
