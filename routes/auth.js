@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 const dotenv = require('dotenv');
 
+
 // Carregar variáveis de ambiente
 dotenv.config();
 
