@@ -15,8 +15,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve arquivos estáticos da pasta /avatares
+// Serve arquivos estáticos da pasta /avatares e /postImages
 app.use('/posts', express.static(path.join(__dirname, 'avatares')));
+app.use('/posts', express.static(path.join(__dirname, 'postImages')));
 
 // Usar as rotas de autenticação
 app.use('/', authRoutes);
