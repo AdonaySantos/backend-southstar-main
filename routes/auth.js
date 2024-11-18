@@ -122,6 +122,48 @@ router.post('/login', async (req, res) => {
   });
 });
 
+// Middleware para autenticação de usuário
+const authenticate = (req, res, next) => {
+  const token = req.header('Authorization')?.replace('Bearer ', ''); // Pega o token enviado no header
+
+  if (!token) {
+    return res.status(401).json({ message: 'Autenticação necessária!' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded; // Armazena os dados do usuário decodificados no objeto `req`
+    next(); // Prossegue para a rota
+  } catch (err) {
+    res.status(401).json({ message: 'Token inválido!' });
+  }
+};
+
+// Rota para curtir ou remover like de um post
+router.post('/like/:postId', authenticate, (req, res) => {
+  const { postId } = req.params;
+  const userId = req.user.userId; // Obtém o ID do usuário a partir do token JWT
+
+  // Encontrar o post
+  const post = posts.find((p) => p.id === parseInt(postId));
+  if (!post) {
+    return res.status(404).json({ message: 'Post não encontrado' });
+  }
+
+  // Verificar se o usuário já deu like
+  if (post.likedBy.includes(userId)) {
+    // Remove o like
+    post.likedBy = post.likedBy.filter((id) => id !== userId);
+    post.likes -= 1;
+    return res.status(200).json({ message: 'Like removido', likes: post.likes });
+  } else {
+    // Adiciona o like
+    post.likedBy.push(userId);
+    post.likes += 1;
+    return res.status(200).json({ message: 'Like adicionado', likes: post.likes });
+  }
+});
+
 // Rota para visualizar todos os usuários cadastrados (apenas para testes)
 router.get('/users', (req, res) => {
   res.json(users);
