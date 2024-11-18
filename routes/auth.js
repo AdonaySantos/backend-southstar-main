@@ -13,6 +13,7 @@ const users = [];
 // Lista de posts (alguns com apenas texto, outros com texto e imagem)
 const posts = [
     { 
+      id: 1,
       userAvatar: "useravatar1.png", 
       userName: "adonay", 
       textContent: "Este é o primeiro post de Adonay com apenas texto.", 
@@ -21,6 +22,7 @@ const posts = [
       date: "2023-10-10"
     },
     { 
+      id: 2,
       userAvatar: "useravatar1.png", 
       userName: "adonay", 
       textContent: "Este é o segundo post de Adonay com uma imagem.", 
@@ -29,6 +31,7 @@ const posts = [
       date: "2023-10-11"
     },
     { 
+      id: 3,
       userAvatar: "useravatar2.png", 
       userName: "well", 
       textContent: "Este é o primeiro post do Well, apenas com texto.", 
@@ -37,6 +40,7 @@ const posts = [
       date: "2023-10-12"
     },
     { 
+      id: 4,
       userAvatar: "useravatar2.png", 
       userName: "well", 
       textContent: "Este é o segundo post do Well, com uma imagem.", 
