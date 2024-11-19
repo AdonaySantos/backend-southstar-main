@@ -19,7 +19,8 @@ const posts = [
       textContent: "Este é o primeiro post de Adonay com apenas texto.", 
       imageContent: "", 
       likes: 10, 
-      date: "2023-10-10"
+      date: "2023-10-10",
+      likedBy: []
     },
     { 
       id: 2,
@@ -28,7 +29,8 @@ const posts = [
       textContent: "Este é o segundo post de Adonay com uma imagem.", 
       imageContent: "imagem1.png", 
       likes: 15, 
-      date: "2023-10-11"
+      date: "2023-10-11",
+      likedBy: []
     },
     { 
       id: 3,
@@ -37,7 +39,8 @@ const posts = [
       textContent: "Este é o primeiro post do Well, apenas com texto.", 
       imageContent: "", 
       likes: 5, 
-      date: "2023-10-12"
+      date: "2023-10-12",
+      likedBy: []
     },
     { 
       id: 4,
@@ -46,7 +49,8 @@ const posts = [
       textContent: "Este é o segundo post do Well, com uma imagem.", 
       imageContent: "imagem2.png", 
       likes: 12, 
-      date: "2023-10-13"
+      date: "2023-10-13",
+      likedBy: []
     }
 ];
 
@@ -60,13 +64,17 @@ async function addDefaultUsers() {
       id: 1,
       name: 'adonay',
       password: await bcrypt.hash(process.env.ADONAY_PASSWORD, 10), // Senha a partir de variável do .env
-      avatar: 'useravatar1.png' // Adicionando campo de avatar
+      avatar: 'useravatar1.png', // Adicionando campo de avatar
+      description: "📍 São Paulo, Brasil",
+      background: 'background1.png'
     },
     {
       id: 2,
       name: 'well',
       password: await bcrypt.hash(process.env.WELL_PASSWORD, 10), // Senha a partir de variável do .env
-      avatar: 'useravatar2.png' // Adicionando campo de avatar
+      avatar: 'useravatar2.png', // Adicionando campo de avatar
+      description: "Bodia garela, Tudo bom?",
+      background: 'background2.png'
     }
   ];
 
@@ -168,6 +176,25 @@ router.post('/like/:postId', authenticate, (req, res) => {
   }
 });
 
+// Backend: Adicionando rota para retornar as informações do usuário
+router.get('/user', authenticate, (req, res) => {
+  const userId = req.user.userId; // Obtém o ID do usuário a partir do token JWT
+
+  // Encontrar o usuário
+  const user = users.find((u) => u.id === userId);
+  if (!user) {
+    return res.status(404).json({ message: 'Usuário não encontrado' });
+  }
+
+  res.status(200).json({
+    id: user.id,
+    name: user.name,
+    avatar: user.avatar,
+    background: user.background || "default-background.png",
+    description: user.description // Exemplo de descrição estática
+  });
+});
+
 // Rota para visualizar todos os usuários cadastrados (apenas para testes)
 router.get('/users', (req, res) => {
   res.json(users);
@@ -176,6 +203,20 @@ router.get('/users', (req, res) => {
 // Rota para visualizar todos os posts (apenas para testes)
 router.get('/posts', (req, res) => {
   res.json(posts);
+});
+
+// Rota para retornar os posts de um usuário específico
+router.get('/posts/user/:userName', (req, res) => {
+  const { userName } = req.params;
+
+  // Filtrar os posts pelo nome do usuário
+  const userPosts = posts.filter(post => post.userName === userName);
+
+  if (userPosts.length === 0) {
+    return res.status(404).json({ message: `Nenhum post encontrado para o usuário: ${userName}` });
+  }
+
+  res.status(200).json(userPosts);
 });
 
 module.exports = router;
