@@ -137,11 +137,9 @@ router.post('/login', async (req, res) => {
 // Middleware para autenticação de usuário
 const authenticate = (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', ''); // Pega o token enviado no header
-
   if (!token) {
     return res.status(401).json({ message: 'Autenticação necessária!' });
   }
-
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded; // Armazena os dados do usuário decodificados no objeto `req`
@@ -156,25 +154,44 @@ router.post('/like/:postId', authenticate, (req, res) => {
   const { postId } = req.params;
   const userId = req.user.userId; // Obtém o ID do usuário a partir do token JWT
 
+  // Validar se o postId é um número válido
+  const parsedPostId = parseInt(postId, 10);
+  if (isNaN(parsedPostId)) {
+    return res.status(400).json({ message: 'ID do post inválido!' });
+  }
+
   // Encontrar o post
-  const post = posts.find((p) => p.id === parseInt(postId));
+  const post = posts.find((p) => p.id === parsedPostId);
   if (!post) {
-    return res.status(404).json({ message: 'Post não encontrado' });
+    return res.status(404).json({ message: 'Post não encontrado!' });
   }
 
   // Verificar se o usuário já deu like
-  if (post.likedBy.includes(userId)) {
+  const userIndex = post.likedBy.indexOf(userId);
+
+  if (userIndex > -1) {
     // Remove o like
-    post.likedBy = post.likedBy.filter((id) => id !== userId);
+    post.likedBy.splice(userIndex, 1);
     post.likes -= 1;
-    return res.status(200).json({ message: 'Like removido', likes: post.likes });
+
+    return res.status(200).json({ 
+      message: 'Like removido', 
+      likes: post.likes, 
+      likedBy: post.likedBy 
+    });
   } else {
     // Adiciona o like
     post.likedBy.push(userId);
     post.likes += 1;
-    return res.status(200).json({ message: 'Like adicionado', likes: post.likes });
+
+    return res.status(200).json({ 
+      message: 'Like adicionado', 
+      likes: post.likes, 
+      likedBy: post.likedBy 
+    });
   }
 });
+
 
 // Backend: Adicionando rota para retornar as informações do usuário
 router.get('/user', authenticate, (req, res) => {
@@ -201,16 +218,54 @@ router.get('/users', (req, res) => {
 });
 
 // Rota para visualizar todos os posts (apenas para testes)
-router.get('/posts', (req, res) => {
-  res.json(posts);
+router.get('/posts', authenticate, (req, res) => {
+  const userId = req.user.userId; // ID do usuário logado
+
+  // Atualizar os posts para incluir o estado de "like"
+  const updatedPosts = posts.map((post) => {
+    return {
+      ...post,
+      likedByUser: post.likedBy.includes(userId), // Verifica se o usuário deu "like"
+    };
+  });
+
+  res.status(200).json(updatedPosts);
 });
 
-// Rota para retornar os posts de um usuário específico
-router.get('/posts/user/:userName', (req, res) => {
-  const { userName } = req.params;
 
-  // Filtrar os posts pelo nome do usuário
-  const userPosts = posts.filter(post => post.userName === userName);
+// Rota para retornar um post específico pelo ID
+router.get('/posts/:id', authenticate, (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.userId; // ID do usuário logado
+
+  // Encontrar o post pelo ID
+  const post = posts.find((p) => p.id === parseInt(id));
+  if (!post) {
+    return res.status(404).json({ message: 'Post não encontrado' });
+  }
+
+  // Adicionar o estado de "like" ao post
+  const postWithLikeStatus = {
+    ...post,
+    likedByUser: post.likedBy.includes(userId),
+  };
+
+  res.status(200).json(postWithLikeStatus);
+});
+
+
+// Rota para retornar os posts de um usuário específico
+router.get('/posts/user/:userName', authenticate, (req, res) => {
+  const { userName } = req.params;
+  const userId = req.user.userId; // ID do usuário logado
+
+  // Filtrar os posts pelo nome do usuário e incluir o estado de "like"
+  const userPosts = posts
+    .filter((post) => post.userName === userName)
+    .map((post) => ({
+      ...post,
+      likedByUser: post.likedBy.includes(userId),
+    }));
 
   if (userPosts.length === 0) {
     return res.status(404).json({ message: `Nenhum post encontrado para o usuário: ${userName}` });
