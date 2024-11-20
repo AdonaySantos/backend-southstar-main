@@ -3,6 +3,8 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
 const dotenv = require('dotenv');
+const multer = require("multer");
+const path = require("path");
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -55,7 +57,7 @@ const posts = [
 ];
 
 // Segredo JWT
-const JWT_SECRET = process.env.JWT_SECRET || 'seu_segredo_jwt';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Função para adicionar usuários padrão
 async function addDefaultUsers() {
@@ -125,8 +127,12 @@ router.post('/login', async (req, res) => {
   }
 
   // Gerar token JWT
-  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1h' });
+  const token = jwt.sign(
+    { userId: user.id, name: user.name, avatar: user.avatar }, JWT_SECRET,
+    { expiresIn: '1h' }
+  );
 
+  console.log(token)
   res.json({
     message: 'Login bem-sucedido!',
     token,
@@ -148,6 +154,65 @@ const authenticate = (req, res, next) => {
     res.status(401).json({ message: 'Token inválido!' });
   }
 };
+
+// Configuração de armazenamento do multer
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    // Define o diretório de destino para as imagens de post
+    cb(null, "./postImages");
+  },
+  filename: function (req, file, cb) {
+    // Gera um nome único para a imagem com base no timestamp e nome original
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + "-" + file.originalname);
+  },
+});
+ 
+// Validação de tipo de arquivo
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 3 * 1024 * 1024 }, // Limite de 3MB para o arquivo
+  fileFilter: function (req, file, cb) {
+    // Permite apenas imagens em formato JPEG ou PNG
+    if (["image/jpeg", "image/png"].includes(file.mimetype)) {
+      cb(null, true); // Aceita o arquivo
+    } else {
+      cb(new Error("Tipo de arquivo não permitido. Apenas JPEG e PNG.")); // Rejeita o arquivo
+    }
+  },
+});
+
+// Rota para criar post
+router.post("/posts", authenticate, upload.single("image"), (req, res) => {
+  // Verifique se o usuário está autenticado
+  if (!req.user) {
+    return res.status(401).json({ message: "Usuário não autenticado." });
+  }
+
+  const { textContent } = req.body;
+  const imageContent = req.file ? req.file.filename : null;
+
+  // Validação: garantir que o post tenha imagem ou texto
+  if (!textContent && !imageContent) {
+    return res.status(400).json({ message: "O post deve ter texto ou imagem." });
+  }
+
+  // Criar o novo post
+  const newPost = {
+    id: posts.length + 1,
+    userAvatar: req.user.avatar,  // Avatar do usuário autenticado
+    userName: req.user.name,  // Nome do usuário
+    textContent,
+    imageContent,
+    likes: 0,
+    likedBy: [],
+    date: new Date().toISOString().split("T")[0],
+  };
+
+  posts.unshift(newPost);
+
+  res.status(201).json({ message: "Post criado com sucesso!", post: newPost });
+});
 
 // Rota para curtir ou remover like de um post
 router.post('/like/:postId', authenticate, (req, res) => {
