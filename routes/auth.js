@@ -16,23 +16,36 @@ const users = [];
 const posts = [
     { 
       id: 1,
-      userAvatar: "useravatar1.png", 
+      userAvatar: "useravatar5.png", 
       userName: "adonay", 
       textContent: "Este é o primeiro post de Adonay com apenas texto.", 
       imageContent: "", 
       likes: 10, 
       date: "2023-10-10",
-      likedBy: []
+      likedBy: [],
+      comments: [
+        {
+          "id": 2, 
+          "userAvatar": "useravatar2.png", 
+          "userName": "well", 
+          "textContent": "Muito bom, Adonay! Parabéns pelo post!", 
+          "imageContent": "", 
+          "likes": 3, 
+          "date": "2023-10-11",
+          "likedBy": []
+        }
+      ]
     },
     { 
       id: 2,
-      userAvatar: "useravatar1.png", 
+      userAvatar: "useravatar5.png", 
       userName: "adonay", 
       textContent: "Este é o segundo post de Adonay com uma imagem.", 
       imageContent: "imagem1.png", 
       likes: 15, 
       date: "2023-10-11",
-      likedBy: []
+      likedBy: [],
+      comments: []
     },
     { 
       id: 3,
@@ -42,7 +55,8 @@ const posts = [
       imageContent: "", 
       likes: 5, 
       date: "2023-10-12",
-      likedBy: []
+      likedBy: [],
+      comments: []
     },
     { 
       id: 4,
@@ -52,7 +66,8 @@ const posts = [
       imageContent: "imagem2.png", 
       likes: 12, 
       date: "2023-10-13",
-      likedBy: []
+      likedBy: [],
+      comments: []
     }
 ];
 
@@ -66,7 +81,7 @@ async function addDefaultUsers() {
       id: 1,
       name: 'adonay',
       password: await bcrypt.hash(process.env.ADONAY_PASSWORD, 10), // Senha a partir de variável do .env
-      avatar: 'useravatar1.png', // Adicionando campo de avatar
+      avatar: 'useravatar5.png', // Adicionando campo de avatar
       description: "📍 São Paulo, Brasil",
       background: 'background1.png'
     },
@@ -75,7 +90,7 @@ async function addDefaultUsers() {
       name: 'well',
       password: await bcrypt.hash(process.env.WELL_PASSWORD, 10), // Senha a partir de variável do .env
       avatar: 'useravatar2.png', // Adicionando campo de avatar
-      description: "Bodia garela, Tudo bom?",
+      description: "📍 São Paulo, Brasil",
       background: 'background2.png'
     }
   ];
@@ -88,7 +103,7 @@ addDefaultUsers();
 
 // Rota para cadastrar novos usuários
 router.post('/register', async (req, res) => {
-  const { name, password, avatar } = req.body; // Incluindo avatar nos dados recebidos
+  const { name, password } = req.body; // Agora não estamos mais recebendo o campo avatar
 
   // Verificar se o usuário já existe
   const existingUser = users.find((u) => u.name === name);
@@ -97,11 +112,23 @@ router.post('/register', async (req, res) => {
   }
 
   try {
+    // Gerar um número aleatório entre 1 e 5
+    const randomAvatarNumber = Math.floor(Math.random() * 5) + 1;
+
+    const randomBackgroungNumber = Math.floor(Math.random() * 5) + 1;
+
+    // Gerar o nome do arquivo do avatar
+    const avatar = `useravatar${randomAvatarNumber}.png`;
+
+    const background = `background${randomBackgroungNumber}.png`
+
+    const description = `📍 São Paulo, Brasil`
+
     // Criptografar a senha
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Adicionar o novo usuário à lista
-    const newUser = { id: users.length + 1, name, password: hashedPassword, avatar }; // Adicionando o campo avatar
+    const newUser = { id: users.length + 1, name, password: hashedPassword, avatar, description, background}; // Atribuindo o avatar aleatório
     users.push(newUser);
 
     res.status(201).json({ message: 'Cadastro bem-sucedido!' });
@@ -109,6 +136,7 @@ router.post('/register', async (req, res) => {
     res.status(500).json({ message: 'Erro ao cadastrar o usuário!' });
   }
 });
+
 
 // Rota de login
 router.post('/login', async (req, res) => {
@@ -137,6 +165,27 @@ router.post('/login', async (req, res) => {
     message: 'Login bem-sucedido!',
     token,
     avatar: user.avatar, // Retornando o avatar no login
+  });
+});
+
+// Rota para iniciar a recuperação de senha
+router.post('/recover-password', (req, res) => {
+  const { name } = req.body;
+
+  // Verificar se o nome do usuário foi fornecido
+  if (!name) {
+    return res.status(400).json({ message: 'O nome do usuário é obrigatório!' });
+  }
+
+  // Encontrar o usuário na lista
+  const user = users.find((u) => u.name === name);
+  if (!user) {
+    return res.status(404).json({ message: 'Usuário não encontrado!' });
+  }
+
+  // Iniciar o processo de recuperação (simulado)
+  res.status(200).json({
+    message: `Recuperação de senha iniciada para o usuário ${name}.`,
   });
 });
 
@@ -204,6 +253,7 @@ router.post("/posts", authenticate, upload.single("image"), (req, res) => {
     userName: req.user.name,  // Nome do usuário
     textContent,
     imageContent,
+    comments: [],
     likes: 0,
     likedBy: [],
     date: new Date().toISOString().split("T")[0],
@@ -298,7 +348,6 @@ router.get('/posts', authenticate, (req, res) => {
 });
 
 
-// Rota para retornar um post específico pelo ID
 router.get('/posts/:id', authenticate, (req, res) => {
   const { id } = req.params;
   const userId = req.user.userId; // ID do usuário logado
@@ -313,10 +362,15 @@ router.get('/posts/:id', authenticate, (req, res) => {
   const postWithLikeStatus = {
     ...post,
     likedByUser: post.likedBy.includes(userId),
+    comments: post.comments.map((comment) => ({
+      ...comment,
+      likedByUser: comment.likedBy.includes(userId),
+    })),
   };
 
   res.status(200).json(postWithLikeStatus);
 });
+
 
 
 // Rota para retornar os posts de um usuário específico
@@ -337,6 +391,41 @@ router.get('/posts/user/:userName', authenticate, (req, res) => {
   }
 
   res.status(200).json(userPosts);
+});
+
+// Rota para adicionar um comentário a um post
+router.post('/posts/:id/comments', authenticate, (req, res) => {
+  const { id } = req.params;
+  const { textContent } = req.body;
+  const imageContent = req.file ? req.file.filename : null;
+
+  // Encontrar o post pelo ID
+  const post = posts.find((p) => p.id === parseInt(id));
+  if (!post) {
+    return res.status(404).json({ message: 'Post não encontrado' });
+  }
+
+  // Validação: garantir que o comentário tenha imagem ou texto
+  if (!textContent && !imageContent) {
+    return res.status(400).json({ message: "O comentário deve ter texto ou imagem." });
+  }
+
+  // Criar o novo comentário
+  const newComment = {
+    id: post.comments.length + 1,
+    userAvatar: req.user.avatar, // Avatar do usuário autenticado
+    userName: req.user.name, // Nome do usuário
+    textContent,
+    imageContent,
+    likes: 0,
+    likedBy: [],
+    date: new Date().toISOString().split("T")[0],
+  };
+
+  // Adicionar o comentário à lista de comentários do post
+  post.comments.unshift(newComment);
+
+  res.status(201).json({ message: "Comentário adicionado com sucesso!", comment: newComment });
 });
 
 module.exports = router;
